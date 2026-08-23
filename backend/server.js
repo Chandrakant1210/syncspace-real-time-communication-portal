@@ -4,7 +4,12 @@ const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config();
 
+// 1. Import your database connection function
+const connectDB = require("./config/db"); 
 const registerSocketHandlers = require("./sockets/socket");
+
+// 2. Run the database connection
+connectDB(); 
 
 const app = express();
 
