@@ -6,7 +6,7 @@ function Home() {
 
   useEffect(() => {
     checkBackend()
-      .then((data) => setMessage(data.message))
+      .then((data) => setMessage(`Backend ${data.status} · database ${data.db}`))
       .catch(() => setMessage("Backend connection failed"));
   }, []);
 
