@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     // This tells Mongoose to connect using your hidden MONGO_URI
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
     console.log(`MongoDB Connected successfully!`);
   } catch (error) {
     console.error(`Error connecting to MongoDB: ${error.message}`);
