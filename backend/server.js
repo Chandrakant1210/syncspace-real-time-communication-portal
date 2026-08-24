@@ -3,6 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const { Server } = require("socket.io");
 
+// 1. Import your database connection function
+const connectDB = require("./config/db"); 
 const config = require("./config");
 const registerSocketHandlers = require("./sockets/socket");
 const healthRoutes = require("./routes/healthRoutes");
@@ -24,6 +26,9 @@ const optionalRequire = (path, label) => {
     throw error;
   }
 };
+
+// 2. Run the database connection
+connectDB(); 
 
 const app = express();
 
