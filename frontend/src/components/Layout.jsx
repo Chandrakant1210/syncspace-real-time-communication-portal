@@ -1,11 +1,24 @@
+import { useNavigate } from "react-router-dom";
+
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
+import { auth, getStoredUser } from "../services/api";
 
 // App shell: Navbar across the top, Sidebar on the left, page content on the right.
-function Layout({ children, userName = "User", onLogout }) {
+// Logout lives here so every page in the shell gets it for free; pass `onLogout`
+// to override.
+function Layout({ children, userName, onLogout }) {
+  const navigate = useNavigate();
+  const displayName = userName || getStoredUser()?.name || "User";
+
+  function handleLogout() {
+    auth.logout(); // clears the token and the cached user
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="flex h-screen flex-col bg-slate-50">
-      <Navbar userName={userName} onLogout={onLogout} />
+      <Navbar userName={displayName} onLogout={onLogout || handleLogout} />
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />

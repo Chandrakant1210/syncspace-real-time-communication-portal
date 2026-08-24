@@ -46,12 +46,6 @@ app.use(express.urlencoded({ extended: true }));
 
 /* ---------------- Database ---------------- */
 
-// config/db.js is implemented by Chandrakant (auth track).
-const connectDB = optionalRequire("./config/db", "MongoDB connection");
-if (typeof connectDB === "function") {
-  connectDB();
-}
-
 // models/User.js is implemented by Chandrakant (auth track). Requiring it here
 // registers the schema so Room.populate("owner" | "members") can resolve it.
 optionalRequire("./models/User", "User model");
