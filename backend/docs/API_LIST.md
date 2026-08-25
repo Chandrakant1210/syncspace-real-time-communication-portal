@@ -234,45 +234,134 @@ Last member leaving:
 
 ---
 
-## 4. Sockets — connected
+## 4. Sockets — implemented
 
 Socket.IO is served from the same HTTP server on port `5000`, with CORS locked to
-`CLIENT_URL`. `sockets/socket.js` currently handles `connection` / `disconnect`; the `io`
-instance is available to Express handlers via `req.app.get("io")`.
+`CLIENT_URL`. The `io` instance is available to Express handlers via `req.app.get("io")`.
+
+**Connection** — Connect to the server and optionally pass a JWT for identity:
+
+```js
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:5000", {
+  auth: { token: localStorage.getItem("token") }, // optional
+});
+```
 
 ---
 
-## Planned integrations — *to be implemented 25–26 Aug*
+### Room presence events
 
-### Whiteboard sync (Socket.IO, room-scoped)
+#### `room:join` — client → server
 
-Every event carries the `roomId` so drawing stays inside one room's Socket.IO room
-(`socket.join(roomId)` on entry). The server relays with `socket.to(roomId)` — the sender
-already has the stroke locally, so it is never echoed back.
+Join a collaboration room. The server adds the socket to the Socket.IO room and broadcasts
+`user:joined` to everyone already there.
+
+**Payload**
+
+```json
+{ "roomId": "<mongoRoomId>", "userId": "<mongoUserId>", "name": "Alice" }
+```
+
+**Response — `room:joined`** (only to the joining client)
+
+```json
+{
+  "roomId": "<mongoRoomId>",
+  "users": [
+    { "userId": "...", "name": "Alice", "socketId": "abc123" }
+  ]
+}
+```
+
+---
+
+#### `user:joined` — server → room (broadcast, excluding joining client)
+
+```json
+{
+  "userId": "...",
+  "name": "Alice",
+  "socketId": "abc123",
+  "users": [ ... ]
+}
+```
+
+`users` is the **live user list** for the room after the join — the frontend can render a
+presence panel directly from this without an extra HTTP call.
+
+---
+
+#### `room:leave` — client → server
+
+Explicitly leave a room (e.g. navigating away from the workspace).
+
+**Payload**
+
+```json
+{ "roomId": "<mongoRoomId>" }
+```
+
+**Response — `room:left`** (only to the leaving client)
+
+```json
+{ "roomId": "<mongoRoomId>" }
+```
+
+---
+
+#### `user:left` — server → room (broadcast)
+
+Sent when a member leaves via `room:leave` **or** disconnects (tab close / network drop).
+The server handles `disconnect` automatically — no client code needed for cleanup.
+
+```json
+{
+  "userId": "...",
+  "name": "Alice",
+  "socketId": "abc123",
+  "users": [ ... ]
+}
+```
+
+---
+
+#### `room:error` — server → client
+
+Sent when a `room:join` or `room:leave` payload is missing `roomId`.
+
+```json
+{ "message": "roomId is required" }
+```
+
+---
+
+#### `auth:error` — server → client
+
+Sent when a token is present in `socket.handshake.auth.token` but is invalid or expired.
+The socket is disconnected immediately after.
+
+```json
+{ "message": "Invalid or expired token" }
+```
+
+---
+
+### Planned integrations — *to be implemented 25–26 Aug*
+
+#### Whiteboard sync (Socket.IO, room-scoped)
 
 | Event | Direction | Payload |
 | --- | --- | --- |
 | `whiteboard:join` | client → server | `{ roomId }` |
 | `whiteboard:draw` | client → server → room | `{ roomId, stroke: { points, color, width, tool } }` |
-| `whiteboard:erase` | client → server → room | `{ roomId, strokeId }` or `{ roomId, points, width }` |
+| `whiteboard:erase` | client → server → room | `{ roomId, strokeId }` |
 | `whiteboard:clear` | client → server → room | `{ roomId }` |
 | `whiteboard:state` | server → client | `{ roomId, strokes: [] }` — sent on join so late arrivals catch up |
 
-Membership is checked against the Room model before relaying, so only members of a room
-can draw in it. Persistence (storing strokes per room) is a follow-up decision — the first
-version keeps each room's canvas in memory.
+#### Code execution (in-browser sandboxed Web Worker)
 
-### Code execution (in-browser sandboxed Web Worker)
-
-JavaScript runs **client-side** in a sandboxed Web Worker — no backend endpoint, no server
-process spawning, and untrusted code never touches the host. The worker is created from a
-blob URL, has no DOM access, and is terminated by the main thread on a timeout (~5s) or
-when the user stops it. `console.log` output is posted back over `postMessage` and
-rendered in the output panel. The source and the result are broadcast over the room's
-Socket.IO channel so everyone sees the same run.
-
-**Future multi-language upgrade — Judge0.** Judge0 (self-hosted, or the RapidAPI instance)
-would add Python, C++, Java, and friends. It needs a backend proxy endpoint
-(`POST /api/execute` → submit source + language id, poll for the result) so the API key
-stays server-side, plus per-user rate limiting. Documented as a future upgrade, not part of
-the 25–26 Aug scope.
+JavaScript runs client-side in a sandboxed Web Worker — no backend endpoint needed.
+`console.log` output is posted back via `postMessage` and broadcast over the room's
+Socket.IO channel. Future upgrade: Judge0 proxy at `POST /api/execute` for multi-language.
