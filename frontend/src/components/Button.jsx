@@ -1,5 +1,5 @@
 const base = [
-  "inline-flex select-none items-center justify-center gap-2 rounded-lg font-medium",
+  "inline-flex select-none items-center justify-center gap-2 rounded-xl font-medium",
   "transition-all duration-200 ease-out",
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
   "active:scale-[0.98]",
@@ -8,9 +8,9 @@ const base = [
 
 const variants = {
   primary: [
-    "bg-linear-to-b from-indigo-500 to-indigo-600 text-white shadow-soft",
-    "hover:from-indigo-500 hover:to-indigo-700 hover:shadow-card",
-    "active:from-indigo-600 active:to-indigo-700",
+    "bg-linear-to-r from-indigo-600 via-indigo-600 to-violet-600 text-white shadow-glow",
+    "hover:-translate-y-px hover:from-indigo-500 hover:via-indigo-600 hover:to-violet-500 hover:shadow-lift",
+    "active:translate-y-0 active:from-indigo-700 active:to-violet-700",
     "focus-visible:ring-indigo-500",
   ].join(" "),
   secondary: [

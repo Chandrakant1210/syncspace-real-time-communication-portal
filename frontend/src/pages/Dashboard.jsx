@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import Layout from "../components/Layout";
+import { getStoredUser } from "../services/api";
 import Button from "../components/Button";
 
 const iconProps = {
@@ -147,6 +148,9 @@ const dotPattern = {
 };
 
 function Dashboard() {
+  // Falls back gracefully until the auth endpoints return a user object.
+  const firstName = (getStoredUser()?.name || "").trim().split(/\s+/)[0] || "there";
+
   const now = new Date();
   const greeting = greetingFor(now.getHours());
   const today = now.toLocaleDateString(undefined, {
@@ -156,7 +160,7 @@ function Dashboard() {
   });
 
   return (
-    <Layout userName="Sargun">
+    <Layout>
       {/* ---------------- HERO ---------------- */}
       <section className="animate-fade-up relative overflow-hidden rounded-2xl bg-linear-to-br from-indigo-600 via-indigo-600 to-violet-600 p-6 shadow-lift sm:p-8">
         <div aria-hidden="true" className="absolute inset-0" style={dotPattern} />
@@ -175,7 +179,7 @@ function Dashboard() {
               {today}
             </p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              {greeting}, Sargun <span aria-hidden="true">👋</span>
+              {greeting}, {firstName} <span aria-hidden="true">👋</span>
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-indigo-100">
               Your workspace is synced and ready. Jump back into a room, or start

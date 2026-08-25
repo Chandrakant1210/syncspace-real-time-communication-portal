@@ -21,14 +21,14 @@ function Input({
       : undefined;
 
   const fieldClasses = [
-    "peer h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900",
+    "peer h-11 w-full rounded-xl border bg-white/70 px-3.5 text-sm text-slate-900",
     "placeholder:text-slate-400 shadow-soft",
     "transition-all duration-200 ease-out",
-    "focus:outline-none focus:ring-4",
+    "focus:outline-none focus:bg-white focus:ring-4",
     "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
     error
       ? "border-red-300 focus:border-red-500 focus:ring-red-500/15"
-      : "border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-indigo-500/15",
+      : "border-slate-200/90 hover:border-indigo-300 hover:shadow-card focus:border-indigo-500 focus:ring-indigo-500/15",
     className,
   ]
     .filter(Boolean)
