@@ -1,0 +1,101 @@
+import { useId } from "react";
+
+/**
+ * Multi-line sibling of <Input>, same label/error/helper contract so the two
+ * can sit next to each other in a form without drifting apart visually.
+ */
+function Textarea({
+  label,
+  error,
+  helperText,
+  name,
+  id,
+  rows = 3,
+  required = false,
+  disabled = false,
+  className = "",
+  ...props
+}) {
+  const autoId = useId();
+  const fieldId = id || name || autoId;
+  const describedBy = error
+    ? `${fieldId}-error`
+    : helperText
+      ? `${fieldId}-help`
+      : undefined;
+
+  const fieldClasses = [
+    "peer w-full resize-y rounded-xl border bg-white/70 px-3.5 py-2.5 text-sm text-slate-900",
+    "placeholder:text-slate-400 shadow-soft",
+    "transition-all duration-200 ease-out",
+    "focus:outline-none focus:bg-white focus:ring-4",
+    "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
+    error
+      ? "border-red-300 focus:border-red-500 focus:ring-red-500/15"
+      : "border-slate-200/90 hover:border-indigo-300 focus:border-indigo-500 focus:ring-indigo-500/15",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="w-full">
+      {/* col-reverse keeps the field first in the DOM so `peer-focus:` can
+          style the label, while still rendering the label above it. */}
+      <div className="flex flex-col-reverse">
+        <textarea
+          id={fieldId}
+          name={name}
+          rows={rows}
+          required={required}
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={fieldClasses}
+          {...props}
+        />
+
+        {label && (
+          <label
+            htmlFor={fieldId}
+            className={[
+              "mb-1.5 block text-sm font-medium transition-colors duration-200",
+              error ? "text-red-600" : "text-slate-700 peer-focus:text-indigo-600",
+            ].join(" ")}
+          >
+            {label}
+            {required && <span className="ml-0.5 text-indigo-500">*</span>}
+          </label>
+        )}
+      </div>
+
+      {error ? (
+        <p
+          id={`${fieldId}-error`}
+          className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="h-3.5 w-3.5 shrink-0"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v4" />
+            <path d="M12 16h.01" />
+          </svg>
+          {error}
+        </p>
+      ) : helperText ? (
+        <p id={`${fieldId}-help`} className="mt-1.5 text-xs text-slate-500">
+          {helperText}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export default Textarea;

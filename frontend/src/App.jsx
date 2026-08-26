@@ -1,12 +1,11 @@
-import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-
-import socket from "./services/socket";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import Rooms from "./pages/Rooms";
+import Room from "./pages/Room";
 
 import ProtectedRoute, {
   PublicOnlyRoute,
@@ -14,16 +13,6 @@ import ProtectedRoute, {
 } from "./components/ProtectedRoute";
 
 function App() {
-  useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Connected to Socket.IO:", socket.id);
-    });
-
-    return () => {
-      socket.off("connect");
-    };
-  }, []);
-
   return (
     <BrowserRouter>
       <Routes>
@@ -54,6 +43,22 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rooms"
+          element={
+            <ProtectedRoute>
+              <Rooms />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/room/:id"
+          element={
+            <ProtectedRoute>
+              <Room />
             </ProtectedRoute>
           }
         />
