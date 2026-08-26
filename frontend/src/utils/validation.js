@@ -64,3 +64,37 @@ export function passwordStrength(value) {
     return { score: 2, label: "Medium", tone: "amber" };
   return { score: 3, label: "Strong", tone: "emerald" };
 }
+
+/* ---------------- Rooms ---------------- */
+
+// Mirrors models/Room.js on the backend (see backend/docs/API_LIST.md).
+export const ROOM_NAME_MAX = 80;
+export const ROOM_DESCRIPTION_MAX = 500;
+export const ROOM_CODE_LENGTH = 6;
+
+export function validateRoomName(value) {
+  const name = value.trim();
+  if (!name) return "Room name is required.";
+  if (name.length > ROOM_NAME_MAX)
+    return `Keep the name under ${ROOM_NAME_MAX} characters.`;
+  return "";
+}
+
+export function validateRoomDescription(value) {
+  if (value.trim().length > ROOM_DESCRIPTION_MAX)
+    return `Keep the description under ${ROOM_DESCRIPTION_MAX} characters.`;
+  return "";
+}
+
+// The backend generates codes from an unambiguous alphabet and matches them
+// case-insensitively, so anything alphanumeric of the right length is worth
+// sending; the server decides whether it exists.
+export function validateRoomCode(value) {
+  const code = value.trim();
+  if (!code) return "Room code is required.";
+  if (!/^[A-Za-z0-9]+$/.test(code))
+    return "Room codes are letters and numbers only.";
+  if (code.length !== ROOM_CODE_LENGTH)
+    return `Room codes are ${ROOM_CODE_LENGTH} characters long.`;
+  return "";
+}
