@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Rooms from "./pages/Rooms";
 import Room from "./pages/Room";
+import WhiteboardPage from "./pages/Whiteboard";
 
 import ProtectedRoute, {
   PublicOnlyRoute,
@@ -51,6 +52,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Rooms />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/whiteboard"
+          element={
+            <ProtectedRoute>
+              <WhiteboardPage />
             </ProtectedRoute>
           }
         />

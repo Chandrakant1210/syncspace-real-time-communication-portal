@@ -11,6 +11,17 @@ const jwt = require("jsonwebtoken");
  */
 const roomPresence = new Map();
 
+/**
+ * Whiteboard state store.
+ *
+ * Structure:
+ *   roomWhiteboards: Map<roomId, Map<strokeId, stroke>>
+ *
+ * This is in-memory for the MVP.
+ * It resets when the backend restarts.
+ */
+const roomWhiteboards = new Map();
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -133,6 +144,135 @@ const registerSocketHandlers = (io) => {
         users: getRoomUsers(roomId),
       });
     });
+
+
+    /* -------------------------------------------------------------- */
+    /*  whiteboard:join                                                */
+    /*  Sends the current whiteboard state to the joining client.       */
+    /*  Payload: { roomId }                                             */
+    /* -------------------------------------------------------------- */
+    socket.on("whiteboard:join", ({ roomId } = {}) => {
+      if (!roomId) {
+        return socket.emit("room:error", {
+          message: "roomId is required",
+        });
+      }
+
+      if (!roomWhiteboards.has(roomId)) {
+        roomWhiteboards.set(roomId, new Map());
+      }
+
+      const strokes = Array.from(roomWhiteboards.get(roomId).values());
+
+      socket.emit("whiteboard:state", {
+        roomId,
+        strokes,
+      });
+
+      console.log(
+        `[whiteboard] ${socket.id} loaded ${strokes.length} strokes from room ${roomId}`
+      );
+    });
+
+
+    /* -------------------------------------------------------------- */
+    /*  whiteboard:draw                                                */
+    /*  Stores a stroke and broadcasts it to everyone else in room.    */
+    /*  Payload: { roomId, stroke }                                    */
+    /* -------------------------------------------------------------- */
+    socket.on("whiteboard:draw", ({ roomId, stroke } = {}) => {
+      if (!roomId || !stroke) {
+        return socket.emit("room:error", {
+          message: "roomId and stroke are required",
+        });
+      }
+
+      if (!roomWhiteboards.has(roomId)) {
+        roomWhiteboards.set(roomId, new Map());
+      }
+
+      const strokeId =
+        stroke.id || `${socket.id}-${Date.now()}-${Math.random()}`;
+
+      const savedStroke = {
+        ...stroke,
+        id: strokeId,
+      };
+
+      roomWhiteboards.get(roomId).set(strokeId, savedStroke);
+
+      // Send the new stroke to everyone else in the room.
+      socket.to(roomId).emit("whiteboard:draw", {
+        roomId,
+        stroke: savedStroke,
+      });
+
+      console.log(
+        `[whiteboard] stroke ${strokeId} added to room ${roomId}`
+      );
+    });
+
+
+    /* -------------------------------------------------------------- */
+    /*  whiteboard:erase                                               */
+    /*  Removes one stroke and broadcasts the removal to the room.     */
+    /*  Payload: { roomId, strokeId }                                  */
+    /* -------------------------------------------------------------- */
+    socket.on("whiteboard:erase", ({ roomId, strokeId } = {}) => {
+      if (!roomId || !strokeId) {
+        return socket.emit("room:error", {
+          message: "roomId and strokeId are required",
+        });
+      }
+
+      const room = roomWhiteboards.get(roomId);
+
+      if (!room) {
+        return;
+      }
+
+      const removed = room.delete(String(strokeId));
+
+      if (!removed) {
+        return;
+      }
+
+      io.to(roomId).emit("whiteboard:erase", {
+        roomId,
+        strokeId: String(strokeId),
+      });
+
+      console.log(
+        `[whiteboard] stroke ${strokeId} erased from room ${roomId}`
+      );
+    });
+
+    /* -------------------------------------------------------------- */
+    /*  whiteboard:clear                                               */
+    /*  Clears the whiteboard for everyone in the room.                */
+    /*  Payload: { roomId }                                             */
+    /* -------------------------------------------------------------- */
+    socket.on("whiteboard:clear", ({ roomId } = {}) => {
+      if (!roomId) {
+        return socket.emit("room:error", {
+          message: "roomId is required",
+        });
+      }
+
+      // Remove all stored strokes for this room.
+      roomWhiteboards.delete(roomId);
+
+      // Tell everyone in the room to clear their canvas.
+      io.to(roomId).emit("whiteboard:clear", {
+        roomId,
+      });
+
+      console.log(
+        `[whiteboard] cleared room ${roomId}`
+      );
+    });
+
+
 
     /* -------------------------------------------------------------- */
     /*  room:leave                                                      */

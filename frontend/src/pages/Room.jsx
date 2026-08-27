@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+
+import Whiteboard from "../components/Whiteboard";
 import Button from "../components/Button";
 import ConnectionBanner from "../components/ConnectionBanner";
 import CopyButton from "../components/CopyButton";
@@ -244,16 +246,14 @@ function Room() {
       <Layout>
         <div
           role="alert"
-          className={`animate-fade-up mx-auto flex max-w-md flex-col items-center rounded-2xl border px-5 py-10 text-center ${
-            isError ? "border-red-200/80 bg-red-50/60" : "border-slate-200/80 bg-white shadow-soft"
-          }`}
+          className={`animate-fade-up mx-auto flex max-w-md flex-col items-center rounded-2xl border px-5 py-10 text-center ${isError ? "border-red-200/80 bg-red-50/60" : "border-slate-200/80 bg-white shadow-soft"
+            }`}
         >
           <span
-            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-              isError
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${isError
                 ? "bg-white text-red-600 ring-1 ring-inset ring-red-100"
                 : "bg-slate-50 text-slate-400 ring-1 ring-inset ring-slate-200"
-            }`}
+              }`}
           >
             <svg
               aria-hidden="true"
@@ -272,16 +272,14 @@ function Room() {
           </span>
 
           <h1
-            className={`mt-3 text-sm font-semibold ${
-              isError ? "text-red-900" : "text-slate-900"
-            }`}
+            className={`mt-3 text-sm font-semibold ${isError ? "text-red-900" : "text-slate-900"
+              }`}
           >
             {isError ? error?.title : "This room is not in your list"}
           </h1>
           <p
-            className={`mt-1 max-w-sm text-xs leading-relaxed ${
-              isError ? "text-red-700" : "text-slate-500"
-            }`}
+            className={`mt-1 max-w-sm text-xs leading-relaxed ${isError ? "text-red-700" : "text-slate-500"
+              }`}
           >
             {isError
               ? error?.message
@@ -378,9 +376,8 @@ function Room() {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                     )}
                     <span
-                      className={`relative inline-flex h-2 w-2 rounded-full ${
-                        onlineCount > 0 ? "bg-emerald-500" : "bg-slate-300"
-                      }`}
+                      className={`relative inline-flex h-2 w-2 rounded-full ${onlineCount > 0 ? "bg-emerald-500" : "bg-slate-300"
+                        }`}
                     />
                   </span>
                   {onlineCount} online
@@ -411,9 +408,18 @@ function Room() {
           </aside>
 
           <div className="space-y-5 lg:order-1 lg:col-span-2">
-            {panels.map((panel, i) => (
-              <PlaceholderPanel key={panel.key} panel={panel} delay={60 + i * 80} />
-            ))}
+            {panels.map((panel, i) =>
+              panel.key === "whiteboard" ? (
+                <Whiteboard key={panel.key}
+                roomId={id} />
+              ) : (
+                <PlaceholderPanel
+                  key={panel.key}
+                  panel={panel}
+                  delay={60 + i * 80}
+                />
+              )
+            )}
           </div>
         </div>
       </div>
