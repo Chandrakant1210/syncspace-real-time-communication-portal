@@ -172,5 +172,16 @@ export const rooms = {
   leave: (roomId) => api.post(`/rooms/${roomId}/leave`),
 };
 
+/* ---------------- Code Execution ---------------- */
+
+export const codeExecution = {
+  run: ({ language, code, stdin = "" }) =>
+    api.post("/code/run", {
+      language,
+      code,
+      stdin,
+    }),
+};
+
 export { API_URL };
 export default api;

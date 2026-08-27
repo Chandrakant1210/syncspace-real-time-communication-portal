@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 
 import Whiteboard from "../components/Whiteboard";
+import CodeEditor from "../components/CodeEditor";
 import Button from "../components/Button";
 import ConnectionBanner from "../components/ConnectionBanner";
 import CopyButton from "../components/CopyButton";
@@ -251,8 +252,8 @@ function Room() {
         >
           <span
             className={`flex h-12 w-12 items-center justify-center rounded-2xl ${isError
-                ? "bg-white text-red-600 ring-1 ring-inset ring-red-100"
-                : "bg-slate-50 text-slate-400 ring-1 ring-inset ring-slate-200"
+              ? "bg-white text-red-600 ring-1 ring-inset ring-red-100"
+              : "bg-slate-50 text-slate-400 ring-1 ring-inset ring-slate-200"
               }`}
           >
             <svg
@@ -408,18 +409,33 @@ function Room() {
           </aside>
 
           <div className="space-y-5 lg:order-1 lg:col-span-2">
-            {panels.map((panel, i) =>
-              panel.key === "whiteboard" ? (
-                <Whiteboard key={panel.key}
-                roomId={id} />
-              ) : (
+            {panels.map((panel, i) => {
+              if (panel.key === "whiteboard") {
+                return (
+                  <Whiteboard
+                    key={panel.key}
+                    roomId={id}
+                  />
+                );
+              }
+
+              if (panel.key === "code-editor") {
+                return (
+                  <CodeEditor
+                    key={panel.key}
+                    roomId={id}
+                  />
+                );
+              }
+
+              return (
                 <PlaceholderPanel
                   key={panel.key}
                   panel={panel}
                   delay={60 + i * 80}
                 />
-              )
-            )}
+              );
+            })}
           </div>
         </div>
       </div>

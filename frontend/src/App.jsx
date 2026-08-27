@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Rooms from "./pages/Rooms";
 import Room from "./pages/Room";
 import WhiteboardPage from "./pages/Whiteboard";
+import CodeEditor from "./components/CodeEditor";
 
 import ProtectedRoute, {
   PublicOnlyRoute,
@@ -60,6 +61,14 @@ function App() {
           element={
             <ProtectedRoute>
               <WhiteboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/code-editor"
+          element={
+            <ProtectedRoute>
+              <CodeEditor />
             </ProtectedRoute>
           }
         />
