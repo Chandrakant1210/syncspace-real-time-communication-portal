@@ -1,14 +1,20 @@
+const dns = require("dns");
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
+
 const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const { Server } = require("socket.io");
 
 // 1. Import your database connection function
-const connectDB = require("./config/db"); 
+const connectDB = require("./config/db");
 const config = require("./config");
 const registerSocketHandlers = require("./sockets/socket");
 const healthRoutes = require("./routes/healthRoutes");
 const roomRoutes = require("./routes/roomRoutes");
+const codeRoutes = require("./routes/codeRoutes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 /**
@@ -28,7 +34,7 @@ const optionalRequire = (path, label) => {
 };
 
 // 2. Run the database connection
-connectDB(); 
+connectDB();
 
 const app = express();
 
@@ -61,6 +67,7 @@ if (authRoutes) {
 }
 
 app.use("/api/rooms", roomRoutes);
+app.use("/api/code", codeRoutes);
 
 /* ---------------- Error handling ---------------- */
 

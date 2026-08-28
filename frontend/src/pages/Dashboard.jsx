@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import Alert from "../components/Alert";
 import Button from "../components/Button";
@@ -134,6 +134,7 @@ const dotPattern = {
 };
 
 function Dashboard() {
+  const navigate = useNavigate();
   const user = getStoredUser();
   const currentUserId = user?._id;
   const firstName = (user?.name || "").trim().split(/\s+/)[0] || "there";
@@ -158,7 +159,8 @@ function Dashboard() {
   const quickActions = [
     {
       title: "Create Room",
-      description: "Spin up a fresh space and share the code with your team.",
+      description:
+        "Spin up a fresh space and share the code with your team.",
       onClick: dialogs.openCreate,
       gradient: "from-indigo-500 to-indigo-600",
       icon: (
@@ -170,7 +172,8 @@ function Dashboard() {
     },
     {
       title: "Join a Room",
-      description: "Got a 6-character code? Drop it in and you are there.",
+      description:
+        "Got a 6-character code? Drop it in and you are there.",
       onClick: dialogs.openJoin,
       gradient: "from-sky-500 to-indigo-600",
       icon: (
@@ -183,8 +186,16 @@ function Dashboard() {
     },
     {
       title: "Whiteboard",
-      description: "A shared canvas inside every room.",
+      description:
+        "Open the shared whiteboard inside your room.",
       scope: "Aug 25",
+      onClick: () => {
+        if (rooms.length > 0) {
+          navigate(`/room/${rooms[0]._id}`);
+        } else {
+          dialogs.openJoin();
+        }
+      },
       gradient: "from-violet-500 to-violet-600",
       icon: (
         <svg {...iconProps}>
@@ -195,8 +206,16 @@ function Dashboard() {
     },
     {
       title: "Code Editor",
-      description: "Pair-program with live cursors and shared output.",
+      description:
+        "Open the collaborative code editor inside your room.",
       scope: "Aug 26",
+      onClick: () => {
+        if (rooms.length > 0) {
+          navigate(`/room/${rooms[0]._id}`);
+        } else {
+          dialogs.openJoin();
+        }
+      },
       gradient: "from-emerald-500 to-emerald-600",
       icon: (
         <svg {...iconProps}>
@@ -206,7 +225,6 @@ function Dashboard() {
       ),
     },
   ];
-
   return (
     <Layout>
       {/* ---------------- HERO ---------------- */}
