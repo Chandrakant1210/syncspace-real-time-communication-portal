@@ -51,11 +51,22 @@ const runCode = async (req, res) => {
       result,
     });
   } catch (error) {
-    console.error("[code] Execution failed:", error.message);
+    // ExecutionError carries the status the caller should see; anything else is
+    // genuinely our fault and stays a 500 with a generic message.
+    const status = error.status || 500;
 
-    return res.status(500).json({
+    console.error(
+      `[code] Execution failed (${status}):`,
+      error.message,
+      error.details ? JSON.stringify(error.details) : ""
+    );
+
+    return res.status(status).json({
       success: false,
-      message: error.message || "Code execution failed.",
+      message:
+        error.name === "ExecutionError"
+          ? error.message
+          : "Code execution failed.",
     });
   }
 };
