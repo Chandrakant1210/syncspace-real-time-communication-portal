@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import socket, { connectSocket } from "../services/socket";
+import { connectSocket } from "../services/socket";
 
 import CodeMirror from "@uiw/react-codemirror";
 
