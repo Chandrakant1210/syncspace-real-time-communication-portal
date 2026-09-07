@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { connectSocket } from "../services/socket";
+import { codeExecution, ApiError } from "../services/api";
 
 import CodeMirror from "@uiw/react-codemirror";
 
@@ -117,6 +118,7 @@ function CodeEditor({ roomId }) {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [language, setLanguage] = useState("javascript");
   const [output, setOutput] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
 
   /* -------------------------------------------------------------- */
   /*  Code editor socket synchronization                             */
@@ -225,50 +227,30 @@ function CodeEditor({ roomId }) {
   /*  Run code                                                       */
   /* -------------------------------------------------------------- */
 
-  const runCode = () => {
-    setOutput("");
-
-    /*
-     * JavaScript can currently be executed in the browser.
-     *
-     * Other languages need a real backend/compiler execution service.
-     * We deliberately do not pretend that browser JavaScript can execute
-     * C, C++, Java or Python.
-     */
-
-    if (language !== "javascript") {
-      setOutput(
-        `${LANGUAGES.find((item) => item.value === language)?.label} execution is not available yet.`
-      );
-      return;
-    }
+  const runCode = async () => {
+    setOutput("Running...");
+    setIsRunning(true);
 
     try {
-      const logs = [];
+      const { result } = await codeExecution.run({ language, code });
 
-      const fakeConsole = {
-        log: (...args) => {
-          logs.push(
-            args
-              .map((value) =>
-                typeof value === "object"
-                  ? JSON.stringify(value, null, 2)
-                  : String(value)
-              )
-              .join(" ")
-          );
-        },
-      };
-
-      const execute = new Function("console", code);
-
-      execute(fakeConsole);
-
-      setOutput(
-        logs.join("\n") || "Code executed successfully."
-      );
+      if (result.compileError) {
+        setOutput(`Compile error:\n${result.compileError}`);
+      } else if (result.stderr) {
+        setOutput(result.stdout ? `${result.stdout}\n${result.stderr}` : result.stderr);
+      } else {
+        setOutput(result.stdout || "Code executed successfully with no output.");
+      }
     } catch (error) {
-      setOutput(`Error: ${error.message}`);
+      if (error instanceof ApiError && error.status === 0) {
+        setOutput("Error: Cannot reach the server. Is the backend running?");
+      } else if (error instanceof ApiError) {
+        setOutput(`Error: ${error.message}`);
+      } else {
+        setOutput(`Error: ${error.message}`);
+      }
+    } finally {
+      setIsRunning(false);
     }
   };
 
@@ -325,9 +307,10 @@ function CodeEditor({ roomId }) {
           <button
             type="button"
             onClick={runCode}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+            disabled={isRunning}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            ▶ Run
+            {isRunning ? "Running..." : "▶ Run"}
           </button>
         </div>
       </div>
