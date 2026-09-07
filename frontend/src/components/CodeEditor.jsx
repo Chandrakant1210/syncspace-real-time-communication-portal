@@ -234,7 +234,17 @@ function CodeEditor({ roomId }) {
     try {
       const { result } = await codeExecution.run({ language, code });
 
-      if (result.compileError) {
+      // A sandbox kill is checked before stderr: the runner leaves either
+      // nothing or raw shell noise ("line 3: 3 Killed") behind, so limitError
+      // is the only readable account of what happened. Partial stdout is still
+      // worth showing — it is what the program managed to print first.
+      if (result.limitError) {
+        setOutput(
+          result.stdout
+            ? `${result.stdout}\n${result.limitError}`
+            : result.limitError
+        );
+      } else if (result.compileError) {
         setOutput(`Compile error:\n${result.compileError}`);
       } else if (result.stderr) {
         setOutput(result.stdout ? `${result.stdout}\n${result.stderr}` : result.stderr);
