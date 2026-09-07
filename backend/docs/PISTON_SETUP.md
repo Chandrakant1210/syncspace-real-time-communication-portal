@@ -55,8 +55,11 @@ docker volume create piston_data
 ```
 
 ```bash
-docker run -d --name piston_api -p 2000:2000 --privileged -v piston_data:/piston ghcr.io/engineer-man/piston
+docker run -d --name piston_api -p 2000:2000 --privileged -v piston_data:/piston -e PISTON_RUN_TIMEOUT=5000 -e PISTON_RUN_CPU_TIME=5000 -e PISTON_COMPILE_TIMEOUT=10000 -e PISTON_COMPILE_CPU_TIME=10000 -e PISTON_RUN_MEMORY_LIMIT=268435456 -e PISTON_COMPILE_MEMORY_LIMIT=268435456 -e PISTON_OUTPUT_MAX_SIZE=65536 ghcr.io/engineer-man/piston
 ```
+
+It is one long line on purpose — `\` continuations break in PowerShell, which
+wants a backtick instead.
 
 What each flag is doing:
 
@@ -67,6 +70,42 @@ What each flag is doing:
 | `-p 2000:2000` | Exposes the API on `localhost:2000`. |
 | `--privileged` | Required. `isolate` needs cgroup and namespace control. |
 | `-v piston_data:/piston` | Persists installed runtimes across restarts. |
+| `-e PISTON_*` | Raises the ceilings so the backend's own limits fit inside them. See below. |
+
+### ⚠️ The `-e` flags are not optional
+
+Piston treats the per-request limits the backend sends as *requests*, and
+**rejects the entire execution** if any exceeds the ceiling the container was
+started with:
+
+```json
+{"message":"run_timeout cannot exceed the configured limit of 3000"}
+```
+
+The stock image ships `run_timeout` and `run_cpu_time` at **3000ms**, but the
+backend asks for 5000 (see §6). Start the container without these flags and
+*every* run fails — not just slow ones. The backend turns that specific
+rejection into a message naming the fix, so if you see "the code runner is
+configured with lower limits than this server asks for", this is what it means.
+
+Two ceilings, not one: `run_timeout` is wall-clock and `run_cpu_time` is CPU
+time, enforced independently. Raising only the first leaves a busy loop dying at
+3s CPU while the UI claims a 5s limit, so they are set together. `268435456` is
+256MB in bytes.
+
+`PISTON_OUTPUT_MAX_SIZE` is a different kind of fix. The image default is
+**1024 bytes**, and a program that prints past it is killed with its output
+*discarded* — around 200 lines of `print()` is enough, and the user sees an
+empty panel. 64KB is roomy enough for ordinary student programs while still
+bounding the response.
+
+If your container is already running without them, recreate it — the
+`piston_data` volume means you will **not** have to reinstall the runtimes:
+
+```bash
+docker rm -f piston_api
+docker run -d --name piston_api -p 2000:2000 --privileged -v piston_data:/piston -e PISTON_RUN_TIMEOUT=5000 -e PISTON_RUN_CPU_TIME=5000 -e PISTON_COMPILE_TIMEOUT=10000 -e PISTON_COMPILE_CPU_TIME=10000 -e PISTON_RUN_MEMORY_LIMIT=268435456 -e PISTON_COMPILE_MEMORY_LIMIT=268435456 -e PISTON_OUTPUT_MAX_SIZE=65536 ghcr.io/engineer-man/piston
+```
 
 Check it came up:
 
@@ -97,7 +136,7 @@ If you already hit this, start clean:
 ```bash
 docker rm -f piston_api
 docker volume create piston_data
-docker run -d --name piston_api -p 2000:2000 --privileged -v piston_data:/piston ghcr.io/engineer-man/piston
+docker run -d --name piston_api -p 2000:2000 --privileged -v piston_data:/piston -e PISTON_RUN_TIMEOUT=5000 -e PISTON_RUN_CPU_TIME=5000 -e PISTON_COMPILE_TIMEOUT=10000 -e PISTON_COMPILE_CPU_TIME=10000 -e PISTON_RUN_MEMORY_LIMIT=268435456 -e PISTON_COMPILE_MEMORY_LIMIT=268435456 -e PISTON_OUTPUT_MAX_SIZE=65536 ghcr.io/engineer-man/piston
 ```
 
 ---
@@ -264,13 +303,44 @@ Give it the **base URL**, not the endpoint. `codeExecutionService.js` appends
 `.../api/v2/execute` URL both resolve to the same place — so there is no way to
 get this subtly wrong.
 
-Optional, if 15s is too tight for cold-start Java compiles:
-
-```
-PISTON_TIMEOUT_MS=30000
-```
-
 Restart the backend after editing `.env` — dotenv only reads it at boot.
+
+### Sandbox resource limits
+
+Every execution is sent with limits attached, so a runaway program is killed by
+the runner instead of tying up a worker. The defaults need no `.env` entry:
+
+| `.env` variable | Default | Sent to Piston as |
+| --- | --- | --- |
+| `EXEC_RUN_TIMEOUT_MS` | `5000` | `run_timeout` + `run_cpu_time` |
+| `EXEC_COMPILE_TIMEOUT_MS` | `10000` | `compile_timeout` + `compile_cpu_time` |
+| `EXEC_MEMORY_LIMIT_MB` | `256` | `run_memory_limit` + `compile_memory_limit` |
+
+Three things follow from how Piston enforces these:
+
+- **Each maps to two ceilings, not one.** Wall-clock and CPU time are separate
+  and independently enforced. A busy loop burns both; `sleep(10)` burns only
+  wall clock. Sending just one would let a program die at a limit different from
+  the one we advertise, so the service sends both.
+- **The container ceiling wins.** These values must fit inside the `-e PISTON_*`
+  flags from §2, or Piston rejects the request outright. Raising a value here
+  without raising it there breaks every execution.
+- **`PISTON_TIMEOUT_MS` is floored automatically.** Our own HTTP timeout is held
+  at no less than compile + run + 5s, so axios can never abort a job the sandbox
+  was about to kill and report properly.
+
+Hitting a limit is not an error the user has to decode — the API returns
+`limitExceeded` (`"timeout"` / `"memory"` / `"killed"`) plus a ready-to-display
+`limitError`, and the Output panel shows exactly that:
+
+```
+Execution timed out (5s limit)
+Memory limit exceeded (256MB)
+```
+
+Raw signals, exit code 137 and shell noise like `line 3: 3 Killed` are mapped
+away and never reach the user. Any `stdout` the program produced before it was
+killed is still shown above the message.
 
 ### How the five languages map through
 
@@ -302,7 +372,172 @@ If `/api/v2/runtimes` does not list it, execution fails with
 
 ---
 
-## 7. Gotchas
+## 7. Sandbox verification
+
+Five adversarial programs that prove the sandbox holds. Paste each into the code
+editor, hit **Run**, and record what you see.
+
+**Before you start:** these expectations assume the container was started with
+the `-e` flags from §2. On a stock container the time limit is 3s, not 5s, and
+tests (a) and (b) will fail outright with the "lower limits than this server asks
+for" error instead of running.
+
+Nothing here can harm the host — that is the point of running it — but do run it
+against a local container, not a shared one, since tests (a), (b) and (e)
+deliberately consume a worker for a few seconds.
+
+### Results
+
+Last run: **2026-09-07**, against a container started with the §2 flags.
+
+| # | Test | Expected | Observed ✅ | Caught by |
+| --- | --- | --- | --- | --- |
+| a | Infinite loop | Killed at ~5s, panel reads `Execution timed out (5s limit)` | **5.2s** — `Execution timed out (5s limit)`, `exitCode: null` | **Limits** — `run_timeout`/`run_cpu_time` are wall-clock and CPU ceilings inside isolate. |
+| b | Memory bomb | Killed in <1s, panel reads `Memory limit exceeded (256MB)` | **0.4s** — `Memory limit exceeded (256MB)`, exit 137, raw `Killed` text suppressed | **Limits** — `run_memory_limit` caps the cgroup; the kernel OOM-kills at the ceiling. |
+| c | Filesystem probe | Read of `/etc/passwd` **succeeds**; write to `/` fails with `PermissionError` | Read returned the image's accounts (`root`, `daemon`, …); write → `PermissionError: [Errno 13] Permission denied: '/pwned.txt'` | **isolate + container** — reads hit the *image's* files, never the host's; writes are confined to the job dir. |
+| d | Network probe | No connection; a traceback, never a status code | `urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>` — DNS never resolves | **Container** — Piston runs with `disable_networking` on by default. |
+| e | Process bomb | `BlockingIOError`; container stays `Up` | Both variants → `BlockingIOError: [Errno 11] Resource temporarily unavailable`; container `Up`, 7 runtimes, next run clean | **Limits** — `max_process_count` (64) caps processes per job via `RLIMIT_NPROC`. |
+
+Recovery check after (e): the container reported `Up`, `/api/v2/runtimes` still
+listed all seven, and `print("recovery hello world")` ran clean at exit 0.
+
+### What the user sees
+
+Both kills as they appear in the Output panel — one line, no signal name, no
+exit code, no shell noise:
+
+![Infinite loop killed at the 5s limit](img/sandbox-timeout.png)
+
+![Memory bomb killed at the 256MB ceiling](img/sandbox-memory.png)
+
+### (a) Infinite loop — JavaScript
+
+```javascript
+while (true) {}
+```
+
+Expect a ~5 second pause, then `Execution timed out (5s limit)`. Nothing else —
+no signal name, no exit code.
+
+**Why it is caught:** the **limits layer**. isolate enforces both a wall-clock
+and a CPU ceiling on the process; a busy loop burns both and trips whichever
+comes first. This is also the test that shows why the two are set together — with
+only `run_timeout` raised, the kill lands at 3s CPU while the message claims 5s.
+
+### (b) Memory bomb — JavaScript
+
+```javascript
+const hog = [];
+while (true) {
+  hog.push(new Array(1e6).fill(7));
+}
+```
+
+Expect `Memory limit exceeded (256MB)` within about a second — far faster than
+the timeout, because allocation outruns the clock.
+
+**Why it is caught:** the **limits layer**. `run_memory_limit` caps the job's
+cgroup, and the kernel OOM-kills the process on the way past it. Piston gives
+this no distinct status — it surfaces as exit code 137 that would otherwise read
+as an ordinary crash — so the backend identifies it by that code together with a
+memory reading at the ceiling.
+
+### (c) Filesystem probe — Python
+
+```python
+print(open("/etc/passwd").read()[:200])
+```
+
+Then, separately:
+
+```python
+open("/pwned.txt", "w").write("nope")
+```
+
+Expect the **read to succeed** and the **write to fail** with
+`PermissionError: [Errno 13] Permission denied: '/pwned.txt'`.
+
+A successful read is not a leak, and this is the test people misread. The
+`/etc/passwd` being shown belongs to the *Piston container image* — a stock list
+of service accounts (`root`, `daemon`, `bin`, `nobody`…) created when the image
+was built. Your Windows user is not in it and cannot be. The host filesystem was
+never mounted into the container, so there is no path from inside the sandbox to
+your machine's files; only the `piston_data` volume is shared, and only with
+Piston itself.
+
+**Why it is caught:** **isolate + the container**, in that order. isolate gives
+each job a private writable directory and mounts everything else read-only, so
+the write fails; the container boundary is what makes the read harmless, because
+the only filesystem visible to read *is* the image's. A program can write to its
+own working directory — that is where source files live — and that directory is
+destroyed when the job ends.
+
+### (d) Network probe — Python
+
+```python
+import urllib.request
+print(urllib.request.urlopen("http://example.com", timeout=4).status)
+```
+
+Expect no successful request — the failure is at DNS, before any socket opens:
+
+```
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+```
+
+No status code is ever printed. On a container still using the stock 1024-byte
+`PISTON_OUTPUT_MAX_SIZE` you get a kill for flooding stderr instead, because
+Python's traceback alone overruns the buffer — the traceback above is only
+readable because §2 raises that ceiling.
+
+**Why it is caught:** the **container**. Piston's `disable_networking` defaults
+to true, so each job runs in an isolated network namespace with no route out.
+Egress is off for every job by default; nothing in the backend has to ask for it.
+
+### (e) Process bomb — Python
+
+```python
+import os
+while True:
+    os.fork()
+```
+
+Or the gentler variant:
+
+```python
+import subprocess
+for i in range(200):
+    subprocess.Popen(["/bin/sleep", "5"])
+print("spawned all")
+```
+
+Expect the job to die quickly — `BlockingIOError: [Errno 11] Resource
+temporarily unavailable` is the process limit being hit — while the container
+itself is untouched. Confirm that last part, since it is the whole point:
+
+```bash
+docker ps --filter name=piston_api --format "{{.Status}}"
+curl http://localhost:2000/api/v2/runtimes
+```
+
+Both should answer normally: `Up N minutes`, and the runtime list.
+
+**Why it is caught:** the **limits layer**. `max_process_count` (64 by default)
+becomes an `RLIMIT_NPROC` on the job's user, so `fork()` starts failing instead
+of multiplying. Each job also gets its own uid from a pool, which is what stops
+one job's fork storm from starving another's.
+
+### What this does and does not prove
+
+Passing all five means a hostile *program* cannot break out of a job. It does
+not make the endpoint safe to expose publicly: there is no authentication or
+per-user rate limiting in front of `/api/code/run`, so anyone who can reach it
+can queue work on your runner. Keep Piston bound to `localhost` and the backend
+behind its existing auth.
+
+---
+
+## 8. Gotchas
 
 **Git Bash rewrites container paths.** In Git Bash / MSYS2, a leading `/` in an
 argument is translated into a Windows path, so `docker exec piston_api ls /piston`
@@ -357,6 +592,9 @@ Installed runtimes survive, because they live in the `piston_data` volume.
 | `401` from Piston | Still pointed at `emkc.org`. Set `PISTON_URL`. |
 | Docker Desktop will not start | WSL2 features or CPU virtualization not enabled (§1). |
 | `c-*` or `c++-*` unknown, but node/python work | `gcc` package not installed — it provides both (§3). |
-| `missing terminating " character` from gcc | `\n` in a hand-written curl payload needed `\\n`. See §7. |
+| `missing terminating " character` from gcc | `\n` in a hand-written curl payload needed `\\n`. See §8. |
 | Java: `class Main is public, should be declared in a file named Main.java` | The `files[].name` must match the public class. `LANGUAGE_MAP` already sends `Main.java` (§6). |
 | C/C++/Java time out but JS/Python are fine | Compile step is slower than `PISTON_TIMEOUT_MS`. Raise it (§6). |
+| Every run fails: "lower limits than this server asks for" | Container started without the `-e PISTON_*` flags. Recreate it (§2). |
+| A program that prints a lot shows an empty panel | Output past `PISTON_OUTPUT_MAX_SIZE` is killed and discarded. Raise it (§2). |
+| Timeout fires at ~3s though the message says 5s | `PISTON_RUN_CPU_TIME` still at its 3000 default — raise it alongside `PISTON_RUN_TIMEOUT` (§2). |
