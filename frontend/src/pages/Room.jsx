@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import Whiteboard from "../components/Whiteboard";
 import CodeEditor from "../components/CodeEditor";
+import ResizableSplit from "../components/ResizableSplit";
 import Button from "../components/Button";
 import ConnectionBanner from "../components/ConnectionBanner";
 import CopyButton from "../components/CopyButton";
@@ -389,54 +390,26 @@ function Room() {
 
           <div className="shrink-0">{backLink}</div>
         </div>
+
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <ParticipantList
+            members={members}
+            onlineUsers={onlineUsers}
+            ownerId={ownerId}
+            currentUserId={user?._id}
+          />
+        </div>
       </header>
 
       {/* ---- Workspace ---- */}
       <div className="mt-5">
         <ConnectionBanner status={connection} detail={detail} />
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          <aside
-            style={{ animationDelay: "120ms" }}
-            className="animate-fade-up lg:order-2"
-          >
-            <ParticipantList
-              members={members}
-              onlineUsers={onlineUsers}
-              ownerId={ownerId}
-              currentUserId={user?._id}
-            />
-          </aside>
-
-          <div className="space-y-5 lg:order-1 lg:col-span-2">
-            {panels.map((panel, i) => {
-              if (panel.key === "whiteboard") {
-                return (
-                  <Whiteboard
-                    key={panel.key}
-                    roomId={id}
-                  />
-                );
-              }
-
-              if (panel.key === "code-editor") {
-                return (
-                  <CodeEditor
-                    key={panel.key}
-                    roomId={id}
-                  />
-                );
-              }
-
-              return (
-                <PlaceholderPanel
-                  key={panel.key}
-                  panel={panel}
-                  delay={60 + i * 80}
-                />
-              );
-            })}
-          </div>
+        <div className="mt-5">
+          <ResizableSplit
+            left={<Whiteboard roomId={id} />}
+            right={<CodeEditor roomId={id} />}
+          />
         </div>
       </div>
 
