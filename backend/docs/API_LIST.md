@@ -7,9 +7,17 @@ All requests and responses are JSON.
 
 | Area | Owner | Status |
 | --- | --- | --- |
-| Auth (`/api/auth/*`), `config/db.js`, `models/User.js` | Chandrakant | implemented by Chandrakant |
+| Auth (`/api/auth/*`), `config/db.js`, `models/User.js` | Chandrakant | done |
 | Backend structure, rooms, middleware, health, integration | Sargun | done |
-| Whiteboard sync, code execution | both | to be implemented 25–26 Aug |
+| Whiteboard sync (Socket.IO) | team | done |
+| Collaborative code editor (frontend, CodeMirror) | team | done |
+| Code execution (`/api/code/run`, Piston-backed) | Chandrakant + Sargun | done |
+
+> Note: this document originally planned code execution as an in-browser Web
+> Worker (see the old "Planned integrations" section further down, kept only
+> for history). That plan was superseded — code execution ships as a real
+> backend endpoint backed by a self-hosted Piston sandbox. See §5 below and
+> [`PISTON_SETUP.md`](PISTON_SETUP.md) for the current implementation.
 
 **Error format** — every failure from the backend uses the same envelope, produced by
 `middleware/errorHandler.js`:
@@ -348,20 +356,83 @@ The socket is disconnected immediately after.
 
 ---
 
-### Planned integrations — *to be implemented 25–26 Aug*
-
-#### Whiteboard sync (Socket.IO, room-scoped)
+### Whiteboard sync (Socket.IO, room-scoped) — implemented
 
 | Event | Direction | Payload |
 | --- | --- | --- |
 | `whiteboard:join` | client → server | `{ roomId }` |
+| `whiteboard:state` | server → client | `{ roomId, strokes: [] }` — sent on join so late arrivals catch up |
 | `whiteboard:draw` | client → server → room | `{ roomId, stroke: { points, color, width, tool } }` |
 | `whiteboard:erase` | client → server → room | `{ roomId, strokeId }` |
 | `whiteboard:clear` | client → server → room | `{ roomId }` |
-| `whiteboard:state` | server → client | `{ roomId, strokes: [] }` — sent on join so late arrivals catch up |
 
-#### Code execution (in-browser sandboxed Web Worker)
+### Collaborative code editor sync (Socket.IO, room-scoped) — implemented
 
-JavaScript runs client-side in a sandboxed Web Worker — no backend endpoint needed.
-`console.log` output is posted back via `postMessage` and broadcast over the room's
-Socket.IO channel. Future upgrade: Judge0 proxy at `POST /api/execute` for multi-language.
+| Event | Direction | Payload |
+| --- | --- | --- |
+| `code-editor:join` | client → server | `{ roomId }` |
+| `code-editor:state` | server → client | current shared editor content/language, sent on join so late arrivals catch up |
+| `code-editor:update` | client → server → room | the editor's updated content/language, broadcast to the rest of the room |
+
+---
+
+## 5. Code Execution — implemented
+
+Real, sandboxed code execution — not the in-browser Web Worker originally
+sketched out for this project. The public Piston API this depended on
+(`emkc.org`) went offline on 31 Aug 2026, so execution runs against a
+**self-hosted Piston container**. Full setup, environment variables, and a
+security/sandbox verification checklist live in
+[`PISTON_SETUP.md`](PISTON_SETUP.md).
+
+### POST /api/code/run
+
+| | |
+| --- | --- |
+| Headers | `Authorization: Bearer <token>`, `Content-Type: application/json` |
+
+**Body**
+
+```json
+{ "language": "python", "code": "print('Hello SyncSpace')", "stdin": "" }
+```
+
+`language` is one of `javascript`, `python`, `java`, `c`, `cpp`. `stdin` is optional.
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "result": {
+    "language": "python",
+    "stdout": "Hello SyncSpace\n",
+    "stderr": "",
+    "output": "Hello SyncSpace\n",
+    "exitCode": 0,
+    "signal": null,
+    "compileError": null,
+    "limitExceeded": null,
+    "limitError": null
+  }
+}
+```
+
+A program that hits a sandbox limit (timeout, memory, or output size) still
+returns `200` — `limitExceeded` is set to `"timeout"`, `"memory"`, `"output"`,
+or `"killed"`, and `limitError` holds the one-line message the UI shows
+(e.g. `"Execution timed out (5s limit)"`). A compile error (C/C++/Java) is
+likewise a normal `200` response, with `compileError` populated instead of
+`stdout`.
+
+**Errors**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Missing/invalid `language`, empty `code`, non-string `stdin`, or unsupported language |
+| `401` | Missing/invalid/expired token |
+| `429` | The Piston runner is rate-limiting requests |
+| `502` | Piston rejected the request or failed while running the code |
+| `503` | Piston is unreachable (container down, or `PISTON_URL` misconfigured) |
+
+Every error uses the standard envelope: `{ "success": false, "message": "..." }`.
