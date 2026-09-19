@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Circle, Layer, Line, Rect, Stage } from "react-konva";
 import socket from "../services/socket";
 
-const CANVAS_HEIGHT = 500;
+const CANVAS_HEIGHT = 640;
 
 function Whiteboard({ roomId }) {
     const containerRef = useRef(null);
