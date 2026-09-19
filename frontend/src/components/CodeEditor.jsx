@@ -332,7 +332,7 @@ function CodeEditor({ roomId }) {
       <div className="border-b border-slate-200">
         <CodeMirror
           value={code}
-          height="400px"
+          height="640px"
           extensions={[getLanguageExtension(language)]}
           onChange={handleCodeChange}
           theme="light"
