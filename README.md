@@ -12,6 +12,7 @@ real, sandboxed code execution — all synchronized live via Socket.IO.
 - **Real-time presence** — live online/offline participant list per room
 - **Collaborative whiteboard** — shared drawing canvas, synced across all room members in real time
 - **Collaborative code editor** — shared editor (CodeMirror) with live sync across room members
+- **Resizable side-by-side workspace** — on wider screens, the whiteboard and code editor sit side by side with a draggable divider (like an IDE's split view) so either panel can be resized; stacks vertically on smaller screens
 - **Real code execution** — run JavaScript, Python, C, C++, or Java, with stdin, and see real
   stdout/stderr/exit codes — executed in a sandboxed [Piston](https://github.com/engineer-man/piston)
   runner, not in the Node.js process
