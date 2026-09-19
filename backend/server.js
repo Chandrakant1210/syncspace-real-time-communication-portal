@@ -34,7 +34,9 @@ const optionalRequire = (path, label) => {
 };
 
 // 2. Run the database connection
-connectDB();
+if (require.main === module) {
+  connectDB();
+}
 
 const app = express();
 
@@ -91,9 +93,11 @@ registerSocketHandlers(io);
 // Handlers elsewhere (e.g. room controllers) can reach the socket server via req.app.get("io").
 app.set("io", io);
 
-server.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
-  console.log(`CORS origin: ${config.clientUrl}`);
-});
+if (require.main === module) {
+  server.listen(config.port, () => {
+    console.log(`Server running on port ${config.port}`);
+    console.log(`CORS origin: ${config.clientUrl}`);
+  });
+}
 
 module.exports = { app, server, io };
