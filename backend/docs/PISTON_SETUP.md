@@ -48,6 +48,11 @@ will refuse to start otherwise.
 
 ## 2. Start the container
 
+> **Using docker-compose?** Run `docker compose up -d` from the repo root instead
+> of the manual `docker run` commands below — it starts both Piston and MongoDB
+> with the same settings. You still need to install the language runtimes once
+> (see §3) after the container starts, since a fresh Piston image ships with none.
+
 Two commands. Run them in order.
 
 ```bash

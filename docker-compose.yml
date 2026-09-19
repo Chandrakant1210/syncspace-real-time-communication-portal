@@ -1,0 +1,47 @@
+# SyncSpace — local dependencies (Piston + MongoDB)
+#
+# This does NOT run the backend or frontend — those still run via
+# `npm run dev` for hot-reload during development (see README.md).
+# This only starts the two external services the backend depends on.
+#
+# Usage:
+#   docker compose up -d
+#
+# Then point backend/.env at:
+#   MONGODB_URI=mongodb://127.0.0.1:27017/syncspace
+#   PISTON_URL=http://localhost:2000
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: syncspace_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  piston:
+    image: ghcr.io/engineer-man/piston
+    container_name: piston_api
+    restart: unless-stopped
+    privileged: true # required — Piston's isolate needs cgroup/namespace control
+    ports:
+      - "2000:2000"
+    volumes:
+      - piston_data:/piston # named volume — do NOT bind-mount a Windows folder here
+    environment:
+      # Must match (or exceed) the limits backend/.env asks for, or every
+      # execution fails with "cannot exceed the configured limit".
+      # See backend/docs/PISTON_SETUP.md §2 and §7 for why these values.
+      PISTON_RUN_TIMEOUT: "5000"
+      PISTON_RUN_CPU_TIME: "5000"
+      PISTON_COMPILE_TIMEOUT: "10000"
+      PISTON_COMPILE_CPU_TIME: "10000"
+      PISTON_RUN_MEMORY_LIMIT: "268435456"
+      PISTON_COMPILE_MEMORY_LIMIT: "268435456"
+      PISTON_OUTPUT_MAX_SIZE: "65536"
+
+volumes:
+  mongo_data:
+  piston_data:
